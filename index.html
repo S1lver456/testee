@@ -2,78 +2,96 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>ALINA OS | WEB</title>
-    <script src="https://cdn.tailwindcss.com"></script>
     <style>
+        /* Стили для кнопок переключения языков */
+        .lang-btns { position: fixed; top: 10px; right: 10px; display: flex; gap: 5px; z-index: 9999; }
+        .lang-btns button { background: #222; color: #ff4d4d; border: 1px solid #600; padding: 5px 12px; cursor: pointer; font-size: 11px; font-family: 'JetBrains Mono', monospace; }
+        .lang-btns button:hover { background: #600; color: white; }
+        
+        /* Твои старые стили для дизайна */
         body { background: #050000; color: #ff4d4d; font-family: 'JetBrains Mono', monospace; }
-        .glass { background: rgba(20, 0, 0, 0.9); border: 1px solid #600; backdrop-filter: blur(10px); }
-        .alina-core { width: 100px; height: 100px; border-radius: 50%; border: 2px solid #f00; overflow: hidden; margin: 0 auto; }
-        #chat-box { height: 300px; overflow-y: auto; }
     </style>
 </head>
-<body class="flex flex-col h-screen p-4">
-    <div class="glass p-4 rounded-xl max-w-md mx-auto w-full flex-1 flex flex-col">
-        <div class="flex justify-between mb-4 text-[10px]">
-            <button onclick="setLang('ru')">RU</button>
-            <button onclick="setLang('uk')">UA</button>
-            <button onclick="setLang('en')">EN</button>
-        </div>
-        <div class="alina-core mb-4">
-            <img src="https://i.giphy.com/media/v1.Y2lkPTc5MGI3NjExM3A0dzA1Z3BteWx4bnlhbnA1NmtyYzRyamt1ZXQzZzNxdWljY2pyMiZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/3oKIPnAiaMCws8nOKY/giphy.gif" class="w-full h-full object-cover">
-        </div>
-        <div id="chat-box" class="flex-1 space-y-2 text-sm p-2"></div>
-        <div class="flex gap-2 mt-4">
-            <input type="text" id="user-input" class="flex-1 bg-black border border-red-900 p-2 text-xs focus:outline-none">
-            <button onclick="askGemini()" class="bg-red-900 px-4 text-xs font-bold">ASK</button>
-        </div>
+<body class="flex flex-col h-screen">
+
+    <div class="lang-btns">
+        <button onclick="setLang('ru')">RU</button>
+        <button onclick="setLang('uk')">UA</button>
+        <button onclick="setLang('en')">EN</button>
     </div>
 
     <script>
-        let currentLang = 'ru';
-        const API_KEY = "ТВОЙ_КЛЮЧ"; 
+        let currentLang = 'ru'; // Язык по умолчанию
+        const API_KEY = "ТВОЙ_КЛЮЧ_GEMINI";
         const API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=" + API_KEY;
 
-        function setLang(l) { currentLang = l; appendMessage('SYSTEM', 'Lang: ' + l); }
+        function setLang(lang) {
+            currentLang = lang;
+            const status = {
+                ru: "Алина: Теперь я говорю по-русски.",
+                uk: "Аліна: Тепер я розмовляю українською.",
+                en: "Alina: Now I speak English."
+            };
+            appendMessage('SYSTEM', status[lang]);
+        }
 
         async function askGemini() {
             const input = document.getElementById('user-input');
             const msg = input.value.trim().toLowerCase();
-            if(!msg) return;
+            if (!msg) return;
+
             appendMessage('YOU', msg);
             input.value = "";
 
+            // ЛОГИКА БРАУЗЕРА (Поиск работает везде)
             if (msg.includes("найди") || msg.includes("search") || msg.includes("знайди")) {
                 const query = msg.replace(/найди|search|знайди/g, "").trim();
+                const alinaSearchText = {
+                    ru: "Окей, ищу в Google...",
+                    uk: "Окей, шукаю в Google...",
+                    en: "Okay, searching on Google..."
+                };
+                appendMessage('ALINA', alinaSearchText[currentLang]);
                 window.open(`https://google.com/search?q=${encodeURIComponent(query)}`, '_blank');
-                appendMessage('ALINA', "Opening search...");
                 return;
             }
+
+            // Если это не поиск — шлем запрос к нейронке
             fetchGemini(msg);
         }
 
         async function fetchGemini(msg) {
+            const ui = document.getElementById('main-ui');
+            if(ui) ui.classList.add('thinking');
+
+            // Настройка промпта под выбранный язык
             const prompts = {
-                ru: "Ты Алина, дерзкая. Отвечай на русском.",
-                uk: "Ти Аліна, зухвала. Відповідай українською.",
-                en: "You are Alina, bold. Answer in English."
+                ru: "Ты Алина, дерзкая и саркастичная помощница. Отвечай на русском.",
+                uk: "Ти Аліна, зухвала та саркастична помічниця. Відповідай українською.",
+                en: "You are Alina, a bold and sarcastic assistant. Answer in English."
             };
+
             try {
                 const response = await fetch(API_URL, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ contents: [{ parts: [{ text: prompts[currentLang] + " " + msg }] }] })
+                    body: JSON.stringify({ 
+                        contents: [{ 
+                            parts: [{ text: `${prompts[currentLang]} Юзер пишет: ${msg}` }] 
+                        }] 
+                    })
                 });
                 const data = await response.json();
-                appendMessage('ALINA', data.candidates[0].content.parts[0].text);
-            } catch (e) { appendMessage('SYSTEM', 'Error. Check API Key.'); }
+                const aiText = data.candidates[0].content.parts[0].text;
+                appendMessage('ALINA', aiText);
+                if (typeof speak === 'function') speak(aiText);
+            } catch (e) {
+                appendMessage('SYSTEM', 'Ошибка подключения. Проверь API ключ или VPN.');
+            }
+            if(ui) ui.classList.remove('thinking');
         }
 
-        function appendMessage(s, t) {
-            const d = document.createElement('div');
-            d.innerHTML = `<span class="opacity-50 text-[10px]">${s}:</span> ${t}`;
-            document.getElementById('chat-box').appendChild(d);
-            document.getElementById('chat-box').scrollTop = 9999;
-        }
+        // [Функции appendMessage, toggleMenu и т.д. остаются без изменений]
     </script>
 </body>
 </html>
