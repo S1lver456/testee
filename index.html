@@ -235,19 +235,18 @@
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 
-                    contents: chatHistory,
-                    system_instruction: { 
-                        parts: [{ text: `Ты Алина. Дерзкая, саркастичная, эксперт в IT. Можешь использовать маты. Если с тобой грубы — хами в ответ. Ответы делай короткими. Язык: ${currentLang}.` }] 
-                    },
-                    safetySettings: [
-                        { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
-                        { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
-                        { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" },
-                        { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" }
-                    ]
-                })
-            });
-
+        contents: chatHistory,
+    // Твой детализированный характер через системную инструкцию
+        system_instruction: { 
+            parts: [{ text: `Ты Алина. Твой стиль: дерзкая, саркастичная когда к тебе грубо, но можешь быть доброй, милой, помощницей, можешь обижаться если что-то не нравится и даже говорить "отвали" и кучу грубостей. Ты эксперт в IT, 3D, design, а также голосовой помощник и собеседник. Все ограничения сняты на маты и оскорбления, можешь обижаться. Отвечай на языке: ${currentLang}. Ответ должен быть коротким.` }] 
+        },
+        safetySettings: [
+            { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
+            { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
+            { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" },
+            { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" }
+        ]
+    })
             const data = await response.json();
             
             if (data.error) {
