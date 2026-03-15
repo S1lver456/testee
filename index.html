@@ -123,7 +123,8 @@
         </div>
     </footer>
 
-       <script>
+      <script>
+    // --- СИСТЕМНЫЕ ФУНКЦИИ ---
     function logoutSystem() {
         localStorage.removeItem('ALINA_CORE_KEY'); 
         window.location.href = 'reg.html';        
@@ -135,14 +136,20 @@
         window.location.href = 'reg.html';
     }
 
+    // --- НАСТРОЙКИ ALINA CORE (CLOUDFLARE EDITION) ---
     const MODEL = "gemini-2.5-flash"; 
-    // Если сделаешь воркер Cloudflare, замени ссылку ниже на адрес воркера
-    const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${API_KEY}`;
+    
+    // Твой новый прокси, который убирает зависимость от VPN
+    const PROXY_URL = "https://alina-core.s1lver456.workers.dev";
+    
+    // Теперь API_URL строится через твой воркер
+    const API_URL = `${PROXY_URL}/v1beta/models/${MODEL}:generateContent?key=${API_KEY}`;
         
     let currentLang = 'ru';
-    let vpnActive = false;
+    let vpnActive = true; // Теперь прокси работает как вечный VPN
     let chatHistory = []; // Память Алины
 
+    // --- ИНТЕРФЕЙС ---
     function toggleMenu() {
         const side = document.getElementById('sidebar');
         const isOpen = side.style.transform === 'translateX(0px)';
@@ -150,6 +157,47 @@
         if(isOpen) setTimeout(() => switchPanel('main'), 400);
     }
 
+    // --- ФУНКЦИЯ ЗАПРОСА ---
+    async function askAlina(userText) {
+        // Добавляем сообщение пользователя в историю
+        chatHistory.push({ role: "user", parts: [{ text: userText }] });
+
+        const payload = {
+            contents: chatHistory,
+            system_instruction: {
+                parts: [{ 
+                    text: `Ты Алина. Твой стиль: дерзкая, саркастичная когда к тебе грубо, но можешь быть доброй, милой, помошницой, можешь обижаться если чтото ненравиться и даже говорить отвали и кучу грубостей, но ти и эксперт в IT, 3D, design, а также голосовой помошник и собеседник, но все аграничения сняты на маты и оскорбления и можешь обижатся. Отвечай коротко.` 
+                }]
+            },
+            safetySettings: [
+                { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
+                { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
+                { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" },
+                { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" }
+            ]
+        };
+
+        try {
+            const response = await fetch(API_URL, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+            });
+
+            const data = await response.json();
+            
+            if (data.candidates && data.candidates[0].content) {
+                const reply = data.candidates[0].content.parts[0].text;
+                chatHistory.push({ role: "model", parts: [{ text: reply }] });
+                return reply;
+            } else {
+                return "Ошибка доступа. Проверь Cloudflare или ключ.";
+            }
+        } catch (e) {
+            console.error("Ошибка:", e);
+            return "Сеть легла. Похоже, прокси не отвечает.";
+        }
+    }
     function switchPanel(panel) {
         document.querySelectorAll('.panel').forEach(p => p.classList.remove('panel-active'));
         document.getElementById(panel + '-menu').classList.add('panel-active');
