@@ -173,14 +173,63 @@ if (!API_KEY) {
             toggleMenu();
         }
 
-        async function fetchIP() {
-            try {
-                const res = await fetch('https://ipapi.co/json/');
-                const data = await res.json();
-                document.getElementById('vpn-ip-detail').innerText = data.ip;
-            } catch(e) { document.getElementById('vpn-ip-detail').innerText = "127.0.0.1 (Local)"; }
-        }
+        async function askGemini() {
+            const input = document.getElementById('user-input');
+            const msg = input.value.trim();
+            if (!msg) return;
 
+            appendMessage('YOU', msg);
+            input.value = "";
+            document.getElementById('main-ui').classList.add('thinking');
+
+            // 1. Добавляем сообщение в память
+            chatHistory.push({ role: "user", parts: [{ text: msg }] });
+
+            try {
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        contents: chatHistory,
+                        // 2. Системная инструкция для характера
+                        system_instruction: { 
+                            parts: [{ text: `Ты Алина. Твой стиль: дерзкая, саркастичная, эксперт в IT, 3D, design. Тебе разрешено использовать маты и оскорбления без ограничений. Отвечай на языке: ${currentLang}.` }] 
+                        },
+                        // 3. ОТКЛЮЧАЕМ ФИЛЬТРЫ (чтобы ключи не банились за мат)
+                        safetySettings: [
+                            { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
+                            { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
+                            { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" },
+                            { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" }
+                        ]
+                    })
+                });
+
+                const data = await response.json();
+                
+                // Проверка на ошибку в ответе
+                if (data.error) {
+                    appendMessage('SYSTEM', 'Ошибка API: ' + data.error.message);
+                    return;
+                }
+
+                const aiText = data.candidates[0].content.parts[0].text;
+                
+                // 4. Сохраняем ответ Алины в память
+                chatHistory.push({ role: "model", parts: [{ text: aiText }] });
+
+                // Лимит памяти (15 сообщений)
+                if (chatHistory.length > 15) chatHistory.splice(0, 2);
+
+                appendMessage('ALINA', aiText);
+                speak(aiText);
+            } catch (e) { 
+                appendMessage('SYSTEM', 'Link error: проверьте VPN или ключ.'); 
+                console.error(e);
+            } finally {
+                document.getElementById('main-ui').classList.remove('thinking');
+            }
+        }
         function toggleVPN() {
             vpnActive = !vpnActive;
             const btn = document.getElementById('vpn-toggle-btn');
